@@ -14,25 +14,25 @@ export async function appendToSheet(data: {
 
     if (!rawKey) throw new Error('GOOGLE_PRIVATE_KEY no definida');
 
-    // si la llave no empieza con el formato pem, asumimos que es base64
-    let privateKey = rawKey;
-    if (!rawKey.includes('-----BEGIN PRIVATE KEY-----')) {
-      privateKey = Buffer.from(rawKey, 'base64').toString('utf-8');
+    // 1. decodificar si es base64 o usar normal
+    let decoded = rawKey;
+    if (!rawKey.includes('-----BEGIN')) {
+      decoded = Buffer.from(rawKey, 'base64').toString('utf-8');
     }
 
-    /* 
-    // codigo anterior por si no usas base64:
-    const privateKey = rawKey
-      .replace(/\\n/g, '\n')
-      .replace(/"/g, '')
-      .trim();
-    */
+    // 2. estrategia nuclear: extraer solo el contenido base64 de la llave
+    // quitamos cabeceras, pies, saltos de linea y espacios
+    const keyContent = decoded
+      .replace('-----BEGIN PRIVATE KEY-----', '')
+      .replace('-----END PRIVATE KEY-----', '')
+      .replace(/\s/g, '')
+      .replace(/\\n/g, '');
 
-    // limpieza final por si acaso
-    privateKey = privateKey.replace(/\\n/g, '\n').trim();
+    // 3. reconstruir el pem perfecto
+    const privateKey = `-----BEGIN PRIVATE KEY-----\n${keyContent}\n-----END PRIVATE KEY-----\n`;
 
     const serviceAccountAuth = new JWT({
-      email: clientEmail?.replace(/^"|"$/g, ''),
+      email: clientEmail?.replace(/["']/g, '').trim(),
       key: privateKey,
       scopes: ['https://www.googleapis.com/auth/spreadsheets'],
     });
