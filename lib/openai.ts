@@ -1,5 +1,10 @@
 import OpenAI from 'openai';
 
+export interface QualificationResult {
+  qualified: boolean;
+  reason: string;
+}
+
 export async function qualifyLead(text: string): Promise<QualificationResult> {
   const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
