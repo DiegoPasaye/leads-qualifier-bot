@@ -14,12 +14,22 @@ export async function appendToSheet(data: {
 
     if (!rawKey) throw new Error('GOOGLE_PRIVATE_KEY no definida');
 
-    // limpieza total para vercel
+    // si la llave no empieza con el formato pem, asumimos que es base64
+    let privateKey = rawKey;
+    if (!rawKey.includes('-----BEGIN PRIVATE KEY-----')) {
+      privateKey = Buffer.from(rawKey, 'base64').toString('utf-8');
+    }
+
+    /* 
+    // codigo anterior por si no usas base64:
     const privateKey = rawKey
-      .replace(/\\n/g, '\n')     // convierte \n literales
-      .replace(/"/g, '')         // quita comillas dobles accidentales
-      .replace(/'/g, '')         // quita comillas simples accidentales
-      .trim();                   // quita espacios/saltos extra
+      .replace(/\\n/g, '\n')
+      .replace(/"/g, '')
+      .trim();
+    */
+
+    // limpieza final por si acaso
+    privateKey = privateKey.replace(/\\n/g, '\n').trim();
 
     const serviceAccountAuth = new JWT({
       email: clientEmail?.replace(/^"|"$/g, ''),
