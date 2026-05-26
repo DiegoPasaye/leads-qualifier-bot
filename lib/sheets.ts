@@ -14,13 +14,15 @@ export async function appendToSheet(data: {
 
     if (!rawKey) throw new Error('GOOGLE_PRIVATE_KEY no definida');
 
-    // limpiar llave para produccion
+    // limpiar llave para produccion en vercel
     const privateKey = rawKey
-      .replace(/^['"]|['"]$/g, '')
-      .replace(/\\n/g, '\n');
+      .split(String.raw`\n`)
+      .join('\n')
+      .replace(/^"|"$/g, '')
+      .replace(/^'|'$/g, '');
 
     const serviceAccountAuth = new JWT({
-      email: clientEmail,
+      email: clientEmail?.replace(/^"|"$/g, ''),
       key: privateKey,
       scopes: ['https://www.googleapis.com/auth/spreadsheets'],
     });
@@ -28,7 +30,7 @@ export async function appendToSheet(data: {
     const sheets = google.sheets({ version: 'v4', auth: serviceAccountAuth });
 
     await sheets.spreadsheets.values.append({
-      spreadsheetId: sheetId,
+      spreadsheetId: sheetId?.replace(/^"|"$/g, ''),
       range: 'A:D',
       valueInputOption: 'USER_ENTERED',
       requestBody: {
