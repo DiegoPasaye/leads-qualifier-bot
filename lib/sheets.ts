@@ -1,5 +1,11 @@
 import { google } from 'googleapis';
 import { JWT } from 'google-auth-library';
+import { createPrivateKey } from 'crypto';
+
+type GoogleCredentials = {
+  client_email?: string;
+  private_key?: string;
+};
 
 function normalizePrivateKey(rawKey: string) {
   let key = rawKey.trim().replace(/^["']|["']$/g, '');
@@ -27,7 +33,49 @@ function normalizePrivateKey(rawKey: string) {
   }
 
   const keyContent = match[1].replace(/\s/g, '');
-  return `-----BEGIN PRIVATE KEY-----\n${keyContent.match(/.{1,64}/g)?.join('\n')}\n-----END PRIVATE KEY-----\n`;
+  const privateKey = `-----BEGIN PRIVATE KEY-----\n${keyContent.match(/.{1,64}/g)?.join('\n')}\n-----END PRIVATE KEY-----\n`;
+
+  createPrivateKey(privateKey);
+
+  return privateKey;
+}
+
+function parseServiceAccount(rawCredentials: string) {
+  const trimmed = rawCredentials.trim().replace(/^["']|["']$/g, '');
+  const json = trimmed.startsWith('{')
+    ? trimmed
+    : Buffer.from(trimmed, 'base64').toString('utf-8');
+
+  return JSON.parse(json) as GoogleCredentials;
+}
+
+function getGoogleCredentials() {
+  const rawCredentials = process.env.GOOGLE_SERVICE_ACCOUNT_JSON_BASE64;
+  if (rawCredentials) {
+    const credentials = parseServiceAccount(rawCredentials);
+    if (!credentials.client_email) {
+      throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON_BASE64 no contiene client_email');
+    }
+    if (!credentials.private_key) {
+      throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON_BASE64 no contiene private_key');
+    }
+
+    return {
+      clientEmail: credentials.client_email,
+      privateKey: normalizePrivateKey(credentials.private_key),
+    };
+  }
+
+  const rawKey = process.env.GOOGLE_PRIVATE_KEY;
+  const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+
+  if (!rawKey) throw new Error('GOOGLE_PRIVATE_KEY no definida');
+  if (!clientEmail) throw new Error('GOOGLE_SERVICE_ACCOUNT_EMAIL no definida');
+
+  return {
+    clientEmail: clientEmail.replace(/["']/g, '').trim(),
+    privateKey: normalizePrivateKey(rawKey),
+  };
 }
 
 export async function appendToSheet(data: {
@@ -37,18 +85,14 @@ export async function appendToSheet(data: {
   reason: string;
 }) {
   try {
-    const rawKey = process.env.GOOGLE_PRIVATE_KEY;
-    const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
     const sheetId = process.env.GOOGLE_SHEET_ID;
 
-    if (!rawKey) throw new Error('GOOGLE_PRIVATE_KEY no definida');
-    if (!clientEmail) throw new Error('GOOGLE_SERVICE_ACCOUNT_EMAIL no definida');
     if (!sheetId) throw new Error('GOOGLE_SHEET_ID no definida');
 
-    const privateKey = normalizePrivateKey(rawKey);
+    const { clientEmail, privateKey } = getGoogleCredentials();
 
     const serviceAccountAuth = new JWT({
-      email: clientEmail?.replace(/["']/g, '').trim(),
+      email: clientEmail,
       key: privateKey,
       scopes: ['https://www.googleapis.com/auth/spreadsheets'],
     });
