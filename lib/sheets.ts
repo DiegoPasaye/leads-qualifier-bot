@@ -14,12 +14,12 @@ export async function appendToSheet(data: {
 
     if (!rawKey) throw new Error('GOOGLE_PRIVATE_KEY no definida');
 
-    // limpiar llave para produccion en vercel
+    // limpieza total para vercel
     const privateKey = rawKey
-      .split(String.raw`\n`)
-      .join('\n')
-      .replace(/^"|"$/g, '')
-      .replace(/^'|'$/g, '');
+      .replace(/\\n/g, '\n')     // convierte \n literales
+      .replace(/"/g, '')         // quita comillas dobles accidentales
+      .replace(/'/g, '')         // quita comillas simples accidentales
+      .trim();                   // quita espacios/saltos extra
 
     const serviceAccountAuth = new JWT({
       email: clientEmail?.replace(/^"|"$/g, ''),
