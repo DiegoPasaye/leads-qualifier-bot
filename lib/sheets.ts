@@ -1,6 +1,35 @@
 import { google } from 'googleapis';
 import { JWT } from 'google-auth-library';
 
+function normalizePrivateKey(rawKey: string) {
+  let key = rawKey.trim().replace(/^["']|["']$/g, '');
+
+  if (key.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(key) as { private_key?: string };
+      if (parsed.private_key) key = parsed.private_key;
+    } catch {
+      // Si no era JSON valido, continuamos con el valor original.
+    }
+  }
+
+  if (!key.includes('-----BEGIN')) {
+    key = Buffer.from(key, 'base64').toString('utf-8').trim();
+  }
+
+  key = key.replace(/\\n/g, '\n').replace(/\r\n/g, '\n').trim();
+
+  const match = key.match(
+    /-----BEGIN (?:RSA )?PRIVATE KEY-----([\s\S]+?)-----END (?:RSA )?PRIVATE KEY-----/,
+  );
+  if (!match) {
+    throw new Error('GOOGLE_PRIVATE_KEY tiene un formato invalido');
+  }
+
+  const keyContent = match[1].replace(/\s/g, '');
+  return `-----BEGIN PRIVATE KEY-----\n${keyContent.match(/.{1,64}/g)?.join('\n')}\n-----END PRIVATE KEY-----\n`;
+}
+
 export async function appendToSheet(data: {
   date: string;
   leadData: string;
@@ -13,23 +42,10 @@ export async function appendToSheet(data: {
     const sheetId = process.env.GOOGLE_SHEET_ID;
 
     if (!rawKey) throw new Error('GOOGLE_PRIVATE_KEY no definida');
+    if (!clientEmail) throw new Error('GOOGLE_SERVICE_ACCOUNT_EMAIL no definida');
+    if (!sheetId) throw new Error('GOOGLE_SHEET_ID no definida');
 
-    // 1. decodificar si es base64 o usar normal
-    let decoded = rawKey;
-    if (!rawKey.includes('-----BEGIN')) {
-      decoded = Buffer.from(rawKey, 'base64').toString('utf-8');
-    }
-
-    // 2. estrategia nuclear: extraer solo el contenido base64 de la llave
-    // quitamos cabeceras, pies, saltos de linea y espacios
-    const keyContent = decoded
-      .replace('-----BEGIN PRIVATE KEY-----', '')
-      .replace('-----END PRIVATE KEY-----', '')
-      .replace(/\s/g, '')
-      .replace(/\\n/g, '');
-
-    // 3. reconstruir el pem perfecto
-    const privateKey = `-----BEGIN PRIVATE KEY-----\n${keyContent}\n-----END PRIVATE KEY-----\n`;
+    const privateKey = normalizePrivateKey(rawKey);
 
     const serviceAccountAuth = new JWT({
       email: clientEmail?.replace(/["']/g, '').trim(),
@@ -40,7 +56,7 @@ export async function appendToSheet(data: {
     const sheets = google.sheets({ version: 'v4', auth: serviceAccountAuth });
 
     await sheets.spreadsheets.values.append({
-      spreadsheetId: sheetId?.replace(/^"|"$/g, ''),
+      spreadsheetId: sheetId.replace(/^"|"$/g, ''),
       range: 'A:D',
       valueInputOption: 'USER_ENTERED',
       requestBody: {
