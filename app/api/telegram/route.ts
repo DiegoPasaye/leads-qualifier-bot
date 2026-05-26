@@ -3,6 +3,8 @@ import { qualifyLead } from '@/lib/openai';
 import { appendToSheet } from '@/lib/sheets';
 import { sendTelegramMessage } from '@/lib/telegram';
 
+export const dynamic = 'force-dynamic';
+
 // limites y configuracion de seguridad
 const MAX_BODY_SIZE = 100_000; // 100kb
 const MAX_TEXT_LENGTH = 1000;

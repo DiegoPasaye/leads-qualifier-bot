@@ -1,15 +1,10 @@
 import OpenAI from 'openai';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-export interface QualificationResult {
-  qualified: boolean;
-  reason: string;
-}
-
 export async function qualifyLead(text: string): Promise<QualificationResult> {
+  const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+
   // prompt para calificar el lead segun el icp
   const prompt = `
     Analiza los datos de un lead y decide si encaja con nuestro ICP.
