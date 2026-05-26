@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
 
     // guardar en google sheets
     try {
-      const date = new Date().toLocaleString('es-ES', { timeZone: 'Europe/Madrid' });
+      const date = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' });
       await appendToSheet({
         date,
         leadData: leadText,
